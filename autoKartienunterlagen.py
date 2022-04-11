@@ -4,6 +4,7 @@ import shapely
 class autoKartierunterlagen:
     def __init__(self, layer, scale, paper, overlap):
         self.layer = QgsProject.instance().mapLayersByName(layer)[0]
+        self.source = self.layer.source()
         self.angle = None
         self.centroid = None
         self.scale = scale
@@ -19,7 +20,9 @@ class autoKartierunterlagen:
         self.gitter(self.layer, self.paper_x, self.paper_y, self.overlap)
         self.rotate(self.layer, -self.angle)
         QgsProject.instance().addMapLayer(self.layer)
-        
+        self.del_nons(self.layer)
+        #QgsProject.instance().removeMapLayers( [self.layer.id()] )
+        #QgsProject.instance().addMapLayer(self.layer)
         
     def ombb(self, layer):
         result = processing.run('native:orientedminimumboundingbox',
@@ -78,13 +81,32 @@ class autoKartierunterlagen:
         
     def get_scale(self, scale, paper):
         if paper == 'A3':
-            self.paper_x = 39 * 2000 / 100
-            self.paper_y = 28 * 2000 / 100
-        
+            self.paper_x = 39 * scale / 100
+            self.paper_y = 28 * scale / 100
+                
+    def del_nons(self, layer):
+        layer.startEditing()
+        for feat in layer.getFeatures():
+            layer.select(feat.id())
+            
+            result = processing.run('native:clip', { 'INPUT' : QgsProcessingFeatureSourceDefinition(layer.source(),
+                                    selectedFeaturesOnly=True,
+                                    featureLimit=-1,
+                                    geometryCheck=QgsFeatureRequest.GeometryAbortOnInvalid),
+                                    'OUTPUT' : 'TEMPORARY_OUTPUT',
+                                    'OVERLAY' : self.source})
+            layer.removeSelection()
+            #QgsProject.instance().addMapLayer(result['OUTPUT'])
+            
+            if result['OUTPUT'].featureCount() == 0:
+                layer.deleteFeature(feat.id())
+        layer.commitChanges()
+            
+       
         
 layer = 'Uraum UVS'
-scale = 2000
+scale = 1000
 paper = 'A3'
-overlap = 100
+overlap = 10
 
 autoKartierunterlagen(layer, scale, paper, overlap)
