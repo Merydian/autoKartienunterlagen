@@ -25,19 +25,20 @@ class autoKartierunterlagen:
         #QgsProject.instance().addMapLayer(self.layer)
         
     def ombb(self, layer):
+        dissolved = processing.run('native:dissolve', 
+                                { 'FIELD' : [],
+                                'INPUT' : layer.source(),
+                                'OUTPUT' : 'TEMPORARY_OUTPUT' }
+                                )['OUTPUT']
+        
         result = processing.run('native:orientedminimumboundingbox',
-        { 'INPUT' : layer.source(),
-        'OUTPUT' : 'TEMPORARY_OUTPUT' })
+                                { 'INPUT' : dissolved,
+                                'OUTPUT' : 'TEMPORARY_OUTPUT' })['OUTPUT']
         
-        output = result['OUTPUT']
-        
-        features = output.getFeatures()
-        
-        for feat in features:
-            attrs = feat.attributes()
-            self.angle = int(attrs[10])
+        for feat in result.getFeatures():
+            self.angle = -feat['angle']
             
-        self.layer = output
+        self.layer = result
         
     def rotate(self, layer, angle):
         provider = layer.dataProvider()
@@ -104,7 +105,7 @@ class autoKartierunterlagen:
             
        
         
-layer = 'Uraum UVS'
+layer = 'Grid'
 scale = 1000
 paper = 'A3'
 overlap = 10
